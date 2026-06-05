@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import joblib
 
+# ============================================================
+# Page setup
+# ============================================================
+
 st.set_page_config(
     page_title="Multilayer Sphere Predictor",
     layout="wide"
@@ -13,26 +17,62 @@ st.set_page_config(
 st.title("Multilayer Sphere Neural-Network Predictor")
 
 # ============================================================
-# Load files
+# Model architecture
+# ============================================================
+
+def build_model():
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Input(shape=(4,)),
+
+        tf.keras.layers.Dense(512, activation="swish"),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(0.03),
+
+        tf.keras.layers.Dense(512, activation="swish"),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(0.03),
+
+        tf.keras.layers.Dense(512, activation="swish"),
+        tf.keras.layers.BatchNormalization(),
+
+        tf.keras.layers.Dense(256, activation="swish"),
+        tf.keras.layers.BatchNormalization(),
+
+        tf.keras.layers.Dense(256, activation="swish"),
+
+        tf.keras.layers.Dense(12)
+    ])
+
+    model(np.zeros((1, 4), dtype=np.float32))
+    model.load_weights("model.weights.h5")
+
+    return model
+
+# ============================================================
+# Load model, scalers, and database
 # ============================================================
 
 @st.cache_resource
 def load_model_and_scalers():
-    model = tf.keras.models.load_model("final_multipole_model.keras")
+
+    model = build_model()
+
     x_scaler = joblib.load("x_scaler.pkl")
     y_scaler = joblib.load("y_scaler.pkl")
+
     return model, x_scaler, y_scaler
 
 
 @st.cache_data
 def load_database():
-    file_id = "1fWk9gZup7NfztnMRI9EarvA0Q_8Eyg_P"
 
-    url = f"https://drive.google.com/uc?id={file_id}"
+    url = "https://drive.google.com/uc?export=download&id=1fWk9gZup7NfztnMRI9EarvA0Q_8Eyg_P"
 
     df = pd.read_csv(url)
 
     return df
+
 
 model, x_scaler, y_scaler = load_model_and_scalers()
 df = load_database()
@@ -54,20 +94,24 @@ illumination_map = {
 }
 
 # ============================================================
-# Sidebar inputs
+# Sidebar
 # ============================================================
 
-st.sidebar.header("Input parameters")
+st.sidebar.header("Input Parameters")
 
 AR = st.sidebar.number_input(
     "Aspect Ratio",
     value=float(df["AspectRatio"].min()),
+    min_value=float(df["AspectRatio"].min()),
+    max_value=float(df["AspectRatio"].max()),
     step=0.01
 )
 
 FF = st.sidebar.number_input(
     "Filling Factor",
     value=float(df["FillFactor"].min()),
+    min_value=float(df["FillFactor"].min()),
+    max_value=float(df["FillFactor"].max()),
     step=0.01
 )
 
@@ -80,7 +124,7 @@ ILL = st.sidebar.selectbox(
 plot_button = st.sidebar.button("Plot Spectrum")
 
 # ============================================================
-# Functions
+# Prediction
 # ============================================================
 
 def predict_spectrum(AR, FF, ILL, energy):
@@ -116,6 +160,9 @@ def predict_spectrum(AR, FF, ILL, energy):
 
     return pred
 
+# ============================================================
+# Real data
+# ============================================================
 
 def get_real_data(AR, FF, ILL):
 
@@ -144,6 +191,9 @@ def get_real_data(AR, FF, ILL):
 
     return real
 
+# ============================================================
+# Plot
+# ============================================================
 
 def make_plot(real, pred, quantity, title):
 
@@ -207,17 +257,32 @@ if plot_button:
 
     with col1:
         st.pyplot(
-            make_plot(real, pred, "Cext_total", "Total Extinction")
+            make_plot(
+                real,
+                pred,
+                "Cext_total",
+                "Total Extinction"
+            )
         )
 
     with col2:
         st.pyplot(
-            make_plot(real, pred, "Cscat_total", "Total Scattering")
+            make_plot(
+                real,
+                pred,
+                "Cscat_total",
+                "Total Scattering"
+            )
         )
 
     with col3:
         st.pyplot(
-            make_plot(real, pred, "Cabs_total", "Total Absorption")
+            make_plot(
+                real,
+                pred,
+                "Cabs_total",
+                "Total Absorption"
+            )
         )
 
 else:
